@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nikku Shabu Shabu - Booking System</title>
+    <style>
+        :root {
+            --primary: #e63946;
+            --secondary: #f1faee;
+            --accent: #a8dadc;
+            --dark: #1d3557;
+            --light: #f8f9fa;
+            --success: #38b000;
+            --danger: #dc3545;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { background: var(--secondary); color: var(--dark); min-height: 100vh; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 2rem; }
+        header { background: var(--primary); color: #fff; padding: 1.5rem; text-align: center; border-radius: 8px; margin-bottom: 2rem; }
+        .operation-hours { background: #000; color: #fff; border-radius: 8px; margin: 1rem auto 0 auto; padding: 1rem; max-width: 500px; }
+        .booking-container { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        @media (max-width: 900px) { .booking-container { grid-template-columns: 1fr; } }
+        .form-section, .list-section { background: #fff; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.08); }
+        h2 { color: var(--primary); margin-bottom: 1rem; border-bottom: 2px solid var(--accent); padding-bottom: 0.5rem; }
+        .form-group { margin-bottom: 1rem; }
+        label { font-weight: 600; margin-bottom: 0.5rem; display: block; }
+        input, select { width: 100%; padding: 0.75rem; border: 1px solid #ddd; border-radius: 4px; font-size: 1rem; }
+        button { background: var(--primary); color: #fff; border: none; padding: 0.75rem 1.5rem; border-radius: 4px; cursor: pointer; font-size: 1rem; font-weight: 600; transition: background 0.3s; }
+        button:hover { background: #c1121f; }
+        .cancel-btn { background: #6c757d; margin-left: 0.5rem; }
+        .cancel-btn:hover { background: #495057; }
+        .delete-btn { background: var(--danger); margin-bottom: 1rem; }
+        .booking-list { list-style: none; margin-top: 1rem; }
+        .booking-item { padding: 1rem; border: 1px solid #ddd; border-radius: 4px; margin-bottom: 0.5rem; display: flex; justify-content: space-between; align-items: center; transition: background 0.2s; }
+        .booking-item.status-cancelled { text-decoration: line-through; color: var(--danger); opacity: 0.7; }
+        .booking-item.status-arrived { color: var(--success); font-weight: 600; }
+        .booking-details { flex-grow: 1; }
+        .booking-actions { display: flex; align-items: center; }
+        .status-checkbox { margin-right: 1rem; width: 20px; height: 20px; cursor: pointer; }
+        .tables-remaining { font-weight: 600; color: var(--primary); margin-bottom: 1rem; }
+        .tables-remaining-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+        .tables-remaining-table th, .tables-remaining-table td { border: 1px solid #ddd; padding: 0.5rem 0.75rem; text-align: center; }
+        .tables-remaining-table th { background: var(--accent); color: var(--dark); }
+        .tables-remaining-table tr:nth-child(even) { background: #f9f9f9; }
+        .status-indicator { display: flex; margin-bottom: 1rem; }
+        .indicator-item { display: flex; align-items: center; margin-right: 1rem; }
+        .indicator-box { width: 15px; height: 15px; margin-right: 0.5rem; border-radius: 3px; }
+        .time-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 0.5rem; margin-bottom: 1rem; }
+        .time-slot { background: var(--accent); color: var(--dark); padding: 0.75rem; text-align: center; border-radius: 6px; cursor: pointer; min-height: 50px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
+        .time-slot.selected { background: var(--primary); color: #fff; font-weight: bold; box-shadow: 0 0 0 2px var(--dark); }
+        .time-slot.booked { background: #6c757d; color: #fff; cursor: not-allowed; }
+        .time-slot.walk-in { background: #ffc107; color: var(--dark); }
+        .alert { padding: 1rem; margin-bottom: 1rem; border-radius: 4px; }
+        .alert-success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .alert-danger { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .hidden { display: none; }
+        .booking-summary { background: var(--secondary); padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Nikku Shabu Shabu</h1>
+            <p>Restaurant Booking System</p>
+            <div class="operation-hours">
+                <h3>Operation Hours</h3>
+                <p><strong>Open:</strong> 2:00 PM - 10:00 PM (Last call at 9:30 PM)</p>
+                <p><strong>Booking Slots:</strong> 2:00 PM - 8:00 PM (2-hour limit per booking)</p>
+                <p><strong>Closed:</strong> Tuesdays</p>
+            </div>
+        </header>
+        <div class="alert hidden" id="alert-message"></div>
+        <div class="booking-container">
+            <div class="form-section">
+                <h2>Make a Booking</h2>
+                <div class="tables-remaining" id="tables-remaining">Tables Available: Loading...</div>
+                <div class="status-indicator">
+                    <div class="indicator-item"><div class="indicator-box" style="background: var(--primary);"></div>Selected</div>
+                    <div class="indicator-item"><div class="indicator-box" style="background: var(--accent);"></div>Available</div>
+                    <div class="indicator-item"><div class="indicator-box" style="background: #6c757d;"></div>Booked</div>
+                </div>
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" placeholder="Enter your full name" required>
+                </div>
+                <div class="form-group">
+                    <label for="phone">Phone Number</label>
+                    <input type="tel" id="phone" placeholder="Enter your phone number" required>
+                </div>
+                <div class="form-group">
+                    <label for="party-size">Party Size (1-10 people)</label>
+                    <input type="number" id="party-size" min="1" max="10" value="1" required>
+                </div>
+                <div class="form-group">
+                    <label for="booking-date">Booking Date</label>
+                    <input type="date" id="booking-date" required>
+                </div>
+                <div class="form-group">
+                    <label>Select Booking Time (Click on an available time slot below)</label>
+                    <div class="time-slots" id="time-slots">Loading time slots...</div>
+                    <small class="time-slot-note">Available slots are in blue, booked in gray</small>
+                </div>
+                <div class="form-group">
+                    <label for="user-booking-summary">Your Bookings (by phone):</label>
+                    <div id="user-booking-summary" class="booking-summary"></div>
+                </div>
+                <button id="submit-booking">Book Table</button>
+            </div>
+            <button id="admin-login-btn" style="margin-bottom:1rem;float:right;">Admin Login</button>
+            <div class="list-section" style="display:none;">
+                <h2>Bookings List</h2>
+                <button id="delete-all-bookings" class="delete-btn">Delete All Bookings</button>
+                <div class="form-group">
+                    <input type="text" id="search-bookings" placeholder="Search bookings by name or phone...">
+                </div>
+                <div id="bookings-list-empty" class="alert">No bookings yet. When customers book, they will appear here.</div>
+                <ul class="booking-list" id="bookings-list"></ul>
+            </div>
+        </div>
+    </div>
+    <script>
+    // --- Configuration ---
+    const MAX_BOOKING_TABLES = 6;
+    const TOTAL_TABLES = 6;
+    const OPENING_HOUR = 14; // 2 PM
+    const CLOSING_HOUR = 22; // 10 PM
+    const LAST_BOOKING_HOUR = 20; // 8 PM
+    const BOOKING_DURATION = 2; // hours
+    // --- End Configuration ---
+
+    // --- DOM Elements ---
+    const nameInput = document.getElementById('name');
+    const phoneInput = document.getElementById('phone');
+    const partySizeInput = document.getElementById('party-size');
+    const bookingDateInput = document.getElementById('booking-date');
+    const timeSlotsContainer = document.getElementById('time-slots');
+    const submitBookingBtn = document.getElementById('submit-booking');
+    const bookingsList = document.getElementById('bookings-list');
+    const bookingsListEmpty = document.getElementById('bookings-list-empty');
+    const tablesRemainingEl = document.getElementById('tables-remaining');
+    const alertMessage = document.getElementById('alert-message');
+    const userBookingSummary = document.getElementById('user-booking-summary');
+    const searchBookingsInput = document.getElementById('search-bookings');
+    const deleteAllBookingsBtn = document.getElementById('delete-all-bookings');
+    const adminLoginBtn = document.getElementById('admin-login-btn');
+    const listSection = document.querySelector('.list-section');
+
+    // --- State ---
+    let bookings = JSON.parse(localStorage.getItem('nikkuBookings')) || [];
+    let selectedTimeSlotValue = null;
+
+    // --- Initialization ---
+    const today = new Date();
+    bookingDateInput.valueAsDate = today;
+    bookingDateInput.setAttribute('min', today.toISOString().split('T')[0]);
+    updateTablesRemaining();
+    generateTimeSlots();
+    renderBookingsList();
+    renderUserBookingSummary();
+
+    // --- Event Listeners ---
+    bookingDateInput.addEventListener('change', () => {
+        selectedTimeSlotValue = null;
+        generateTimeSlots();
+        updateTablesRemaining();
+    });
+    searchBookingsInput.addEventListener('input', renderBookingsList);
+    submitBookingBtn.addEventListener('click', handleBookingSubmit);
+    phoneInput.addEventListener('input', renderUserBookingSummary);
+    deleteAllBookingsBtn.addEventListener('click', function() {
+        deleteAllBookings();
+    });
+    // Admin login logic
+    adminLoginBtn.addEventListener('click', function() {
+        const password = prompt('Enter admin password:');
+        if (password === 'alip123') {
+            listSection.style.display = '';
+            adminLoginBtn.style.display = 'none';
+        } else if (password !== null) {
+            alert('Incorrect password.');
+        }
+    });
+
+    // --- Functions ---
+    function generateTimeSlots() {
+        timeSlotsContainer.innerHTML = '';
+        selectedTimeSlotValue = null;
+        const selectedDate = new Date(bookingDateInput.value);
+        const today = new Date();
+        const isToday = selectedDate.toDateString() === today.toDateString();
+        const currentHour = today.getHours();
+        for (let hour = OPENING_HOUR; hour <= LAST_BOOKING_HOUR; hour++) {
+            const timeSlot = document.createElement('div');
+            timeSlot.className = 'time-slot';
+            const slotStart = `${hour.toString().padStart(2, '0')}:00`;
+            const slotEnd = `${(hour + BOOKING_DURATION).toString().padStart(2, '0')}:00`;
+            timeSlot.textContent = `${slotStart} - ${slotEnd}`;
+            // Closed on Tuesday
+            if (selectedDate.getDay() === 2) {
+                timeSlot.classList.add('booked');
+                timeSlot.title = 'We are closed on Tuesdays';
+                timeSlotsContainer.appendChild(timeSlot);
+                continue;
+            }
+            // Past slots for today
+            if (isToday && hour <= currentHour) {
+                timeSlot.classList.add('booked');
+                timeSlot.title = 'This time slot has already passed';
+                timeSlotsContainer.appendChild(timeSlot);
+                continue;
+            }
+            // Booked slots
+            const bookingsForDate = bookings.filter(b => b.date === bookingDateInput.value && !b.cancelled);
+            const bookingsForSlot = bookingsForDate.filter(b => b.time === `${slotStart} - ${slotEnd}`);
+            if (bookingsForSlot.length >= MAX_BOOKING_TABLES) {
+                timeSlot.classList.add('booked');
+                timeSlot.title = 'This time slot is fully booked';
+                timeSlotsContainer.appendChild(timeSlot);
+                continue;
+            }
+            // Selectable slot
+            timeSlot.addEventListener('click', function() {
+                document.querySelectorAll('.time-slot').forEach(slot => slot.classList.remove('selected'));
+                timeSlot.classList.add('selected');
+                selectedTimeSlotValue = timeSlot.textContent;
+            });
+            timeSlot.title = `Available - ${MAX_BOOKING_TABLES - bookingsForSlot.length} tables left`;
+            timeSlotsContainer.appendChild(timeSlot);
+        }
+    }
+
+    function handleBookingSubmit() {
+        const name = nameInput.value.trim();
+        const phone = phoneInput.value.trim();
+        const partySize = parseInt(partySizeInput.value);
+        const date = bookingDateInput.value;
+        const time = selectedTimeSlotValue;
+        if (!name) return showAlert('Please enter your full name', 'danger');
+        if (!phone) return showAlert('Please enter your phone number', 'danger');
+        if (partySize < 1 || partySize > 10) return showAlert('Party size must be between 1 and 10 people', 'danger');
+        if (!date) return showAlert('Please select a booking date', 'danger');
+        if (!time) return showAlert('Please select a time slot', 'danger');
+        // Prevent double booking
+        if (bookings.some(b => b.date === date && b.time === time && b.phone === phone && !b.cancelled)) {
+            return showAlert('You already have a booking for this slot.', 'danger');
+        }
+        // Check if slot is still available
+        const bookingsForSlot = bookings.filter(b => b.date === date && b.time === time && !b.cancelled);
+        if (bookingsForSlot.length >= MAX_BOOKING_TABLES) {
+            showAlert('This time slot is no longer available.', 'danger');
+            generateTimeSlots();
+            return;
+        }
+        // Create booking
+        const booking = {
+            id: Date.now().toString(),
+            name, phone, partySize, date, time,
+            arrived: false, cancelled: false, createdAt: new Date().toISOString()
+        };
+        bookings.push(booking);
+        saveBookings();
+        updateTablesRemaining();
+        generateTimeSlots();
+        renderBookingsList();
+        renderUserBookingSummary();
+        nameInput.value = '';
+        phoneInput.value = '';
+        partySizeInput.value = '1';
+        selectedTimeSlotValue = null;
+        showAlert(`Booking confirmed for ${date} at ${time}`, 'success');
+    }
+
+    function saveBookings() {
+        localStorage.setItem('nikkuBookings', JSON.stringify(bookings));
+    }
+
+    function renderBookingsList() {
+        bookingsList.innerHTML = '';
+        let filteredBookings = bookings;
+        const searchTerm = searchBookingsInput.value.trim().toLowerCase();
+        if (searchTerm) {
+            filteredBookings = bookings.filter(b =>
+                b.name.toLowerCase().includes(searchTerm) ||
+                b.phone.toLowerCase().includes(searchTerm)
+            );
+        }
+        if (filteredBookings.length === 0) {
+            bookingsListEmpty.classList.remove('hidden');
+            return;
+        }
+        bookingsListEmpty.classList.add('hidden');
+        const sortedBookings = [...filteredBookings].sort((a, b) => {
+            const dateA = new Date(a.date + ' ' + a.time.split(' - ')[0]);
+            const dateB = new Date(b.date + ' ' + b.time.split(' - ')[0]);
+            return dateA - dateB;
+        });
+        sortedBookings.forEach(booking => {
+            const bookingItem = document.createElement('li');
+            bookingItem.className = 'booking-item';
+            if (booking.arrived) bookingItem.classList.add('status-arrived');
+            if (booking.cancelled) bookingItem.classList.add('status-cancelled');
+            bookingItem.innerHTML = `
+                <div class="booking-details">
+                    <div class="booking-time">${booking.date} • ${booking.time}</div>
+                    <div class="booking-name">${booking.name}</div>
+                    <div class="booking-party">Party of ${booking.partySize} • ${booking.phone}</div>
+                </div>
+                <div class="booking-actions">
+                    <input type="checkbox" class="status-checkbox" ${booking.arrived ? 'checked' : ''} data-id="${booking.id}" ${booking.cancelled ? 'disabled' : ''}>
+                    <button data-id="${booking.id}" class="cancel-btn" ${booking.cancelled ? 'disabled' : ''}>Cancel</button>
+                </div>
+            `;
+            bookingsList.appendChild(bookingItem);
+            // Arrived checkbox
+            const checkbox = bookingItem.querySelector('.status-checkbox');
+            checkbox.addEventListener('change', function() {
+                const booking = bookings.find(b => b.id === this.dataset.id);
+                if (booking) {
+                    booking.arrived = this.checked;
+                    saveBookings();
+                    renderBookingsList();
+                    renderUserBookingSummary();
+                }
+            });
+            // Cancel button
+            const cancelBtn = bookingItem.querySelector('.cancel-btn');
+            cancelBtn.addEventListener('click', function() {
+                if (!confirm('Are you sure you want to cancel this booking?')) return;
+                const booking = bookings.find(b => b.id === this.dataset.id);
+                if (booking) {
+                    booking.cancelled = true;
+                    saveBookings();
+                    updateTablesRemaining();
+                    generateTimeSlots();
+                    renderBookingsList();
+                    renderUserBookingSummary();
+                    showAlert('Booking cancelled successfully', 'success');
+                }
+            });
+        });
+    }
+
+    function renderUserBookingSummary() {
+        const phone = phoneInput.value.trim();
+        if (!phone) {
+            userBookingSummary.textContent = 'Enter your phone number to see your bookings.';
+            return;
+        }
+        const userBookings = bookings.filter(b => b.phone === phone && !b.cancelled);
+        if (userBookings.length === 0) {
+            userBookingSummary.textContent = 'No active bookings found for this phone number.';
+            return;
+        }
+        userBookingSummary.innerHTML = userBookings.map(b =>
+            `${b.date} at ${b.time} (Party of ${b.partySize})`
+        ).join('<br>');
+    }
+
+    function updateTablesRemaining() {
+        const selectedDate = bookingDateInput.value;
+        if (!selectedDate) {
+            tablesRemainingEl.textContent = 'Tables Available: Please select a date';
+            return;
+        }
+        const bookingsForDate = bookings.filter(booking => booking.date === selectedDate && !booking.cancelled);
+        const bookedSlots = {};
+        bookingsForDate.forEach(booking => {
+            if (!bookedSlots[booking.time]) bookedSlots[booking.time] = 0;
+            bookedSlots[booking.time]++;
+        });
+        let tableHtml = '<table class="tables-remaining-table">';
+        tableHtml += '<tr><th>Time Slot</th><th>Tables Available</th></tr>';
+        for (let hour = OPENING_HOUR; hour <= LAST_BOOKING_HOUR; hour++) {
+            const slotStart = `${hour.toString().padStart(2, '0')}:00`;
+            const slotEnd = `${(hour + BOOKING_DURATION).toString().padStart(2, '0')}:00`;
+            const timeSlot = `${slotStart} - ${slotEnd}`;
+            const bookedForSlot = bookedSlots[timeSlot] || 0;
+            const remaining = Math.max(0, MAX_BOOKING_TABLES - bookedForSlot);
+            tableHtml += `<tr><td>${timeSlot}</td><td>${remaining}</td></tr>`;
+        }
+        tableHtml += '</table>';
+        tablesRemainingEl.innerHTML = 'Tables Available:' + tableHtml;
+    }
+
+    function showAlert(message, type) {
+        alertMessage.textContent = message;
+        alertMessage.className = `alert alert-${type}`;
+        alertMessage.classList.remove('hidden');
+        setTimeout(() => {
+            alertMessage.classList.add('hidden');
+        }, 4000);
+    }
+
+    function deleteAllBookings() {
+        if (confirm('Are you sure you want to delete ALL bookings? This cannot be undone.')) {
+            bookings = [];
+            saveBookings();
+            updateTablesRemaining();
+            generateTimeSlots();
+            renderBookingsList();
+            renderUserBookingSummary();
+            showAlert('All bookings have been deleted.', 'success');
+        }
+    }
+    // --- End of script ---
+    </script>
+</body>
+</html> 
