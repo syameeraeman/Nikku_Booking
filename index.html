@@ -196,7 +196,7 @@
         const isToday = selectedDate.toDateString() === today.toDateString();
         const currentHour = today.getHours();
         const partySize = parseInt(partySizeInput.value) || 1;
-        const tablesNeeded = partySize > 6 ? 2 : 1;
+        const tablesNeeded = partySize >= 6 ? 2 : 1;
         TIME_SLOTS.forEach(slot => {
             const timeSlot = document.createElement('div');
             timeSlot.className = 'time-slot';
@@ -220,7 +220,7 @@
             let tablesBooked = 0;
             bookingsForDate.forEach(b => {
                 if (b.time === slot.label) {
-                    tablesBooked += (b.partySize > 6 ? 2 : 1);
+                    tablesBooked += (b.partySize >= 6 ? 2 : 1);
                 }
             });
             if (tablesBooked + tablesNeeded > MAX_BOOKING_TABLES) {
@@ -256,11 +256,11 @@
             return showAlert('You already have a booking for this slot.', 'danger');
         }
         // Check if slot is still available (with 2-table logic)
-        const tablesNeeded = partySize > 6 ? 2 : 1;
+        const tablesNeeded = partySize >= 6 ? 2 : 1;
         const bookingsForSlot = bookings.filter(b => b.date === date && b.time === time && !b.cancelled);
         let tablesBooked = 0;
         bookingsForSlot.forEach(b => {
-            tablesBooked += (b.partySize > 6 ? 2 : 1);
+            tablesBooked += (b.partySize >= 6 ? 2 : 1);
         });
         if (tablesBooked + tablesNeeded > MAX_BOOKING_TABLES) {
             showAlert('This time slot does not have enough tables available.', 'danger');
@@ -393,7 +393,7 @@
             let tablesBooked = 0;
             bookingsForDate.forEach(b => {
                 if (b.time === slot.label) {
-                    tablesBooked += (b.partySize > 6 ? 2 : 1);
+                    tablesBooked += (b.partySize >= 6 ? 2 : 1);
                 }
             });
             const remaining = Math.max(0, MAX_BOOKING_TABLES - tablesBooked);
