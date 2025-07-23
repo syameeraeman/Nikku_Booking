@@ -166,7 +166,7 @@
     const listSection = document.querySelector('.list-section');
 
     // --- State ---
-    let bookings = JSON.parse(localStorage.getItem('nikkuBookings')) || [];
+    let bookings = [];
     let selectedTimeSlotValue = null;
 
     // --- Initialization ---
@@ -177,6 +177,16 @@
     generateTimeSlots();
     renderBookingsList();
     renderUserBookingSummary();
+
+    // Listen for bookings in Firestore (real-time)
+    db.collection('bookings').onSnapshot(snapshot => {
+      bookings = [];
+      snapshot.forEach(doc => bookings.push({ id: doc.id, ...doc.data() }));
+      updateTablesRemaining();
+      generateTimeSlots();
+      renderBookingsList();
+      renderUserBookingSummary();
+    });
 
     // --- Event Listeners ---
     bookingDateInput.addEventListener('change', () => {
@@ -289,14 +299,7 @@
             name, phone, partySize, date, time,
             arrived: false, cancelled: false, createdAt: new Date().toISOString()
         };
-        bookings.push(booking);
-        // Save to localStorage and update UI
-        saveBookings();
-        updateTablesRemaining();
-        generateTimeSlots();
-        renderBookingsList();
-        renderUserBookingSummary();
-        // Also save to Firestore
+        // Only save to Firestore
         db.collection('bookings').add(booking)
           .then(() => {
             console.log('Booking saved to Firestore!');
@@ -304,6 +307,10 @@
           .catch((error) => {
             console.error('Error saving booking to Firestore:', error);
           });
+        updateTablesRemaining();
+        generateTimeSlots();
+        renderBookingsList();
+        renderUserBookingSummary();
         nameInput.value = '';
         phoneInput.value = '';
         partySizeInput.value = '1';
@@ -314,9 +321,7 @@
         }, 500);
     }
 
-    function saveBookings() {
-        localStorage.setItem('nikkuBookings', JSON.stringify(bookings));
-    }
+    // saveBookings is no longer needed and can be removed
 
     function renderBookingsList() {
         bookingsList.innerHTML = '';
@@ -361,7 +366,7 @@
                 const booking = bookings.find(b => b.id === this.dataset.id);
                 if (booking) {
                     booking.arrived = this.checked;
-                    saveBookings();
+                    db.collection('bookings').doc(booking.id).update({ arrived: this.checked });
                     renderBookingsList();
                     renderUserBookingSummary();
                 }
@@ -373,7 +378,7 @@
                 const booking = bookings.find(b => b.id === this.dataset.id);
                 if (booking) {
                     booking.cancelled = true;
-                    saveBookings();
+                    db.collection('bookings').doc(booking.id).update({ cancelled: true });
                     updateTablesRemaining();
                     generateTimeSlots();
                     renderBookingsList();
@@ -439,8 +444,9 @@
 
     function deleteAllBookings() {
         if (confirm('Are you sure you want to delete ALL bookings? This cannot be undone.')) {
-            bookings = [];
-            saveBookings();
+            bookings.forEach(booking => {
+                db.collection('bookings').doc(booking.id).delete();
+            });
             updateTablesRemaining();
             generateTimeSlots();
             renderBookingsList();
