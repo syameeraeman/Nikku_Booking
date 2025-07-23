@@ -438,14 +438,14 @@
 
     function deleteAllBookings() {
         if (confirm('Are you sure you want to delete ALL bookings? This cannot be undone.')) {
+            const batch = db.batch();
             bookings.forEach(booking => {
-                db.collection('bookings').doc(booking.id).delete();
+                const ref = db.collection('bookings').doc(booking.id);
+                batch.delete(ref);
             });
-            updateTablesRemaining();
-            generateTimeSlots();
-            renderBookingsList();
-            renderUserBookingSummary();
-            showAlert('All bookings have been deleted.', 'success');
+            batch.commit().then(() => {
+                showAlert('All bookings have been deleted.', 'success');
+            });
         }
     }
     // --- End of script ---
