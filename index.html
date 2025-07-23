@@ -374,17 +374,11 @@
             // Cancel button
             const cancelBtn = bookingItem.querySelector('.cancel-btn');
             cancelBtn.addEventListener('click', function() {
-                if (!confirm('Are you sure you want to cancel this booking?')) return;
-                const booking = bookings.find(b => b.id === this.dataset.id);
-                if (booking) {
-                    booking.cancelled = true;
-                    db.collection('bookings').doc(booking.id).update({ cancelled: true });
-                    updateTablesRemaining();
-                    generateTimeSlots();
-                    renderBookingsList();
-                    renderUserBookingSummary();
-                    showAlert('Booking cancelled successfully', 'success');
-                }
+                if (!confirm('Are you sure you want to delete this booking?')) return;
+                const bookingId = this.dataset.id;
+                db.collection('bookings').doc(bookingId).delete().then(() => {
+                    showAlert('Booking deleted successfully', 'success');
+                });
             });
         });
     }
