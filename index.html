@@ -301,6 +301,16 @@
         // Only save to Firestore
         db.collection('bookings').add(booking)
           .then(() => {
+            // Telegram notification
+            const telegramMessage = `New Booking!%0AName: ${name}%0APhone: ${phone}%0AParty Size: ${partySize}%0ADate: ${date}%0ATime: ${time}`;
+            fetch(`https://api.telegram.org/bot7748486297:AAEvdBWnlnzNjrk_U0deQ-3y2trwYEu5a8M/sendMessage?chat_id=8172012387&text=${telegramMessage}`)
+              .then(response => response.json())
+              .then(data => {
+                console.log('Telegram notification sent:', data);
+              })
+              .catch(error => {
+                console.error('Error sending Telegram notification:', error);
+              });
             console.log('Booking saved to Firestore!');
           })
           .catch((error) => {
