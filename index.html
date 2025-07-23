@@ -269,6 +269,9 @@
         partySizeInput.value = '1';
         selectedTimeSlotValue = null;
         showAlert(`Booking confirmed for ${date} at ${time}`, 'success');
+        setTimeout(() => {
+            alert('Booking successful! Tempoh tahan meja (reserved) ialah 15 minit dari masa tempahan.\n\nSebarang pertukaran waktu atau penambahan bilangan orang perlu dimaklumkan sebelum jam 12:00 tengah hari pada hari tempahan. Terima kasih atas kerjasama anda! Kami tak sabar nak menyambut anda di Nikku Shabu Shabu ✨');
+        }, 500);
     }
 
     function saveBookings() {
