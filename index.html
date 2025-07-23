@@ -89,8 +89,8 @@
                     <input type="tel" id="phone" placeholder="Enter your phone number" required>
                 </div>
                 <div class="form-group">
-                    <label for="party-size">Party Size (1-10 people)</label>
-                    <input type="number" id="party-size" min="1" max="10" value="1" required>
+                    <label for="party-size">Party Size (1-20 people)</label>
+                    <input type="number" id="party-size" min="1" max="20" value="1" required>
                 </div>
                 <div class="form-group">
                     <label for="booking-date">Booking Date</label>
@@ -121,12 +121,15 @@
     </div>
     <script>
     // --- Configuration ---
+    // New time slots: 2-4pm, 4-6pm, 6-8pm, 8-10pm
+    const TIME_SLOTS = [
+        { label: '14:00 - 16:00', start: 14, end: 16 },
+        { label: '16:00 - 18:00', start: 16, end: 18 },
+        { label: '18:00 - 20:00', start: 18, end: 20 },
+        { label: '20:00 - 22:00', start: 20, end: 22 }
+    ];
     const MAX_BOOKING_TABLES = 6;
     const TOTAL_TABLES = 6;
-    const OPENING_HOUR = 14; // 2 PM
-    const CLOSING_HOUR = 22; // 10 PM
-    const LAST_BOOKING_HOUR = 20; // 8 PM
-    const BOOKING_DURATION = 2; // hours
     // --- End Configuration ---
 
     // --- DOM Elements ---
@@ -171,6 +174,8 @@
     deleteAllBookingsBtn.addEventListener('click', function() {
         deleteAllBookings();
     });
+    // Regenerate time slots when party size changes
+    partySizeInput.addEventListener('input', generateTimeSlots);
     // Admin login logic
     adminLoginBtn.addEventListener('click', function() {
         const password = prompt('Enter admin password:');
@@ -190,34 +195,39 @@
         const today = new Date();
         const isToday = selectedDate.toDateString() === today.toDateString();
         const currentHour = today.getHours();
-        for (let hour = OPENING_HOUR; hour <= LAST_BOOKING_HOUR; hour++) {
+        const partySize = parseInt(partySizeInput.value) || 1;
+        const tablesNeeded = partySize > 6 ? 2 : 1;
+        TIME_SLOTS.forEach(slot => {
             const timeSlot = document.createElement('div');
             timeSlot.className = 'time-slot';
-            const slotStart = `${hour.toString().padStart(2, '0')}:00`;
-            const slotEnd = `${(hour + BOOKING_DURATION).toString().padStart(2, '0')}:00`;
-            timeSlot.textContent = `${slotStart} - ${slotEnd}`;
+            timeSlot.textContent = slot.label;
             // Closed on Tuesday
             if (selectedDate.getDay() === 2) {
                 timeSlot.classList.add('booked');
                 timeSlot.title = 'We are closed on Tuesdays';
                 timeSlotsContainer.appendChild(timeSlot);
-                continue;
+                return;
             }
             // Past slots for today
-            if (isToday && hour <= currentHour) {
+            if (isToday && slot.start <= currentHour) {
                 timeSlot.classList.add('booked');
                 timeSlot.title = 'This time slot has already passed';
                 timeSlotsContainer.appendChild(timeSlot);
-                continue;
+                return;
             }
             // Booked slots
             const bookingsForDate = bookings.filter(b => b.date === bookingDateInput.value && !b.cancelled);
-            const bookingsForSlot = bookingsForDate.filter(b => b.time === `${slotStart} - ${slotEnd}`);
-            if (bookingsForSlot.length >= MAX_BOOKING_TABLES) {
+            let tablesBooked = 0;
+            bookingsForDate.forEach(b => {
+                if (b.time === slot.label) {
+                    tablesBooked += (b.partySize > 6 ? 2 : 1);
+                }
+            });
+            if (tablesBooked + tablesNeeded > MAX_BOOKING_TABLES) {
                 timeSlot.classList.add('booked');
-                timeSlot.title = 'This time slot is fully booked';
+                timeSlot.title = 'This time slot does not have enough tables available';
                 timeSlotsContainer.appendChild(timeSlot);
-                continue;
+                return;
             }
             // Selectable slot
             timeSlot.addEventListener('click', function() {
@@ -225,9 +235,9 @@
                 timeSlot.classList.add('selected');
                 selectedTimeSlotValue = timeSlot.textContent;
             });
-            timeSlot.title = `Available - ${MAX_BOOKING_TABLES - bookingsForSlot.length} tables left`;
+            timeSlot.title = `Available - ${MAX_BOOKING_TABLES - tablesBooked} tables left`;
             timeSlotsContainer.appendChild(timeSlot);
-        }
+        });
     }
 
     function handleBookingSubmit() {
@@ -238,17 +248,22 @@
         const time = selectedTimeSlotValue;
         if (!name) return showAlert('Please enter your full name', 'danger');
         if (!phone) return showAlert('Please enter your phone number', 'danger');
-        if (partySize < 1 || partySize > 10) return showAlert('Party size must be between 1 and 10 people', 'danger');
+        if (partySize < 1 || partySize > 20) return showAlert('Party size must be between 1 and 20 people', 'danger');
         if (!date) return showAlert('Please select a booking date', 'danger');
         if (!time) return showAlert('Please select a time slot', 'danger');
         // Prevent double booking
         if (bookings.some(b => b.date === date && b.time === time && b.phone === phone && !b.cancelled)) {
             return showAlert('You already have a booking for this slot.', 'danger');
         }
-        // Check if slot is still available
+        // Check if slot is still available (with 2-table logic)
+        const tablesNeeded = partySize > 6 ? 2 : 1;
         const bookingsForSlot = bookings.filter(b => b.date === date && b.time === time && !b.cancelled);
-        if (bookingsForSlot.length >= MAX_BOOKING_TABLES) {
-            showAlert('This time slot is no longer available.', 'danger');
+        let tablesBooked = 0;
+        bookingsForSlot.forEach(b => {
+            tablesBooked += (b.partySize > 6 ? 2 : 1);
+        });
+        if (tablesBooked + tablesNeeded > MAX_BOOKING_TABLES) {
+            showAlert('This time slot does not have enough tables available.', 'danger');
             generateTimeSlots();
             return;
         }
@@ -374,14 +389,16 @@
         });
         let tableHtml = '<table class="tables-remaining-table">';
         tableHtml += '<tr><th>Time Slot</th><th>Tables Available</th></tr>';
-        for (let hour = OPENING_HOUR; hour <= LAST_BOOKING_HOUR; hour++) {
-            const slotStart = `${hour.toString().padStart(2, '0')}:00`;
-            const slotEnd = `${(hour + BOOKING_DURATION).toString().padStart(2, '0')}:00`;
-            const timeSlot = `${slotStart} - ${slotEnd}`;
-            const bookedForSlot = bookedSlots[timeSlot] || 0;
-            const remaining = Math.max(0, MAX_BOOKING_TABLES - bookedForSlot);
-            tableHtml += `<tr><td>${timeSlot}</td><td>${remaining}</td></tr>`;
-        }
+        TIME_SLOTS.forEach(slot => {
+            let tablesBooked = 0;
+            bookingsForDate.forEach(b => {
+                if (b.time === slot.label) {
+                    tablesBooked += (b.partySize > 6 ? 2 : 1);
+                }
+            });
+            const remaining = Math.max(0, MAX_BOOKING_TABLES - tablesBooked);
+            tableHtml += `<tr><td>${slot.label}</td><td>${remaining}</td></tr>`;
+        });
         tableHtml += '</table>';
         tablesRemainingEl.innerHTML = 'Tables Available:' + tableHtml;
     }
