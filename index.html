@@ -57,6 +57,10 @@
         .hidden { display: none; }
         .booking-summary { background: var(--secondary); padding: 0.5rem 1rem; border-radius: 4px; margin-bottom: 1rem; }
     </style>
+    <!-- Firebase App (the core Firebase SDK) -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <!-- Add Firestore -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
     <div class="container">
@@ -120,6 +124,18 @@
         </div>
     </div>
     <script>
+    // --- Firebase Init ---
+    const firebaseConfig = {
+      apiKey: "AIzaSyAGf4GRosArFV3g6DZGzymvVttkJCB_dUM",
+      authDomain: "nikku-32012.firebaseapp.com",
+      projectId: "nikku-32012",
+      storageBucket: "nikku-32012.firebasestorage.app",
+      messagingSenderId: "271689707014",
+      appId: "1:271689707014:web:215c527cb8ea0fc6b75d87",
+      measurementId: "G-6RZ7XBXTD1"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
     // --- Configuration ---
     // New time slots: 2-4pm, 4-6pm, 6-8pm, 8-10pm
     const TIME_SLOTS = [
@@ -274,11 +290,20 @@
             arrived: false, cancelled: false, createdAt: new Date().toISOString()
         };
         bookings.push(booking);
+        // Save to localStorage and update UI
         saveBookings();
         updateTablesRemaining();
         generateTimeSlots();
         renderBookingsList();
         renderUserBookingSummary();
+        // Also save to Firestore
+        db.collection('bookings').add(booking)
+          .then(() => {
+            console.log('Booking saved to Firestore!');
+          })
+          .catch((error) => {
+            console.error('Error saving booking to Firestore:', error);
+          });
         nameInput.value = '';
         phoneInput.value = '';
         partySizeInput.value = '1';
