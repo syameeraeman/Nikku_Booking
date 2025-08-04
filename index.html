@@ -315,7 +315,6 @@
                 <button id="submit-booking">Book Table</button>
             </div>
             <button id="admin-login-btn" style="margin-bottom:1rem;float:right;">Admin Login</button>
-            <button id="show-walkins-btn" style="margin-bottom:1rem;margin-right:1rem;float:right;background: var(--warning);">Show Walk-Ins</button>
             <div class="list-section" style="display:none;">
                 <h2>Bookings List</h2>
                 <button id="delete-all-bookings" class="delete-btn">Delete All Bookings</button>
@@ -324,13 +323,6 @@
                 </div>
                 <div id="bookings-list-empty" class="alert">No bookings yet. When customers book, they will appear here.</div>
                 <ul class="booking-list" id="bookings-list"></ul>
-                
-                <h2 style="margin-top: 2rem;">Walk-In List</h2>
-                <div class="form-group">
-                    <input type="text" id="search-walkins" placeholder="Search walk-ins by name or phone...">
-                </div>
-                <div id="walkins-list-empty" class="alert">No walk-in customers yet.</div>
-                <ul class="booking-list" id="walkins-list"></ul>
             </div>
         </div>
     </div>
@@ -372,13 +364,9 @@
     const alertMessage = document.getElementById('alert-message');
     const userBookingSummary = document.getElementById('user-booking-summary');
     const searchBookingsInput = document.getElementById('search-bookings');
-    const searchWalkinsInput = document.getElementById('search-walkins');
     const deleteAllBookingsBtn = document.getElementById('delete-all-bookings');
     const adminLoginBtn = document.getElementById('admin-login-btn');
-    const showWalkinsBtn = document.getElementById('show-walkins-btn');
     const listSection = document.querySelector('.list-section');
-    const walkinsList = document.getElementById('walkins-list');
-    const walkinsListEmpty = document.getElementById('walkins-list-empty');
 
     // --- State ---
     let bookings = [];
@@ -391,19 +379,15 @@
     updateTablesRemaining();
     generateTimeSlots();
     renderBookingsList();
-    renderWalkinsList();
     renderUserBookingSummary();
 
     // Listen for bookings in Firestore (real-time)
     db.collection('bookings').onSnapshot(snapshot => {
       bookings = [];
       snapshot.forEach(doc => bookings.push({ id: doc.id, ...doc.data() }));
-      console.log('Bookings updated:', bookings);
-      console.log('Walk-ins found:', bookings.filter(b => b.type === 'walkin'));
       updateTablesRemaining();
       generateTimeSlots();
       renderBookingsList();
-      renderWalkinsList();
       renderUserBookingSummary();
     });
 
@@ -414,7 +398,6 @@
         updateTablesRemaining();
     });
     searchBookingsInput.addEventListener('input', renderBookingsList);
-    searchWalkinsInput.addEventListener('input', renderWalkinsList);
     submitBookingBtn.addEventListener('click', handleBookingSubmit);
     phoneInput.addEventListener('input', renderUserBookingSummary);
     deleteAllBookingsBtn.addEventListener('click', function() {
@@ -422,13 +405,6 @@
     });
     // Regenerate time slots when party size changes
     partySizeInput.addEventListener('input', generateTimeSlots);
-    
-    // Show walk-ins button for testing
-    showWalkinsBtn.addEventListener('click', function() {
-        listSection.style.display = '';
-        showWalkinsBtn.style.display = 'none';
-    });
-    
     // Admin login logic
     adminLoginBtn.addEventListener('click', function() {
         const password = prompt('Enter admin password:');
@@ -584,10 +560,10 @@
 
     function renderBookingsList() {
         bookingsList.innerHTML = '';
-        let filteredBookings = bookings.filter(b => !b.type || b.type !== 'walkin'); // Exclude walk-ins
+        let filteredBookings = bookings;
         const searchTerm = searchBookingsInput.value.trim().toLowerCase();
         if (searchTerm) {
-            filteredBookings = filteredBookings.filter(b =>
+            filteredBookings = bookings.filter(b =>
                 b.name.toLowerCase().includes(searchTerm) ||
                 b.phone.toLowerCase().includes(searchTerm)
             );
@@ -641,130 +617,6 @@
             });
         });
     }
-    
-    function renderWalkinsList() {
-        console.log('Rendering walk-ins list...');
-        walkinsList.innerHTML = '';
-        let filteredWalkins = bookings.filter(b => b.type === 'walkin'); // Only walk-ins
-        console.log('Filtered walk-ins:', filteredWalkins);
-        const searchTerm = searchWalkinsInput.value.trim().toLowerCase();
-        if (searchTerm) {
-            filteredWalkins = filteredWalkins.filter(w =>
-                w.name.toLowerCase().includes(searchTerm) ||
-                w.phone.toLowerCase().includes(searchTerm)
-            );
-        }
-        if (filteredWalkins.length === 0) {
-            walkinsListEmpty.classList.remove('hidden');
-            console.log('No walk-ins to display');
-            return;
-        }
-        walkinsListEmpty.classList.add('hidden');
-        
-        // Sort by arrival time (oldest first)
-        const sortedWalkins = [...filteredWalkins].sort((a, b) => 
-            new Date(a.createdAt) - new Date(b.createdAt)
-        );
-        
-        sortedWalkins.forEach(walkin => {
-            const walkinItem = document.createElement('li');
-            walkinItem.className = 'booking-item';
-            
-            if (walkin.notified) walkinItem.classList.add('status-arrived');
-            if (walkin.expired) walkinItem.classList.add('status-cancelled');
-            
-            const arrivalTime = new Date(walkin.createdAt).toLocaleTimeString();
-            const waitTime = getWaitTime(walkin.createdAt);
-            
-            walkinItem.innerHTML = `
-                <div class="booking-details">
-                    <div class="booking-time">Arrived: ${arrivalTime} (${waitTime})</div>
-                    <div class="booking-name">${walkin.name}</div>
-                    <div class="booking-party">Party of ${walkin.partySize} • ${walkin.phone}</div>
-                </div>
-                <div class="booking-actions">
-                    <input type="checkbox" class="status-checkbox" ${walkin.notified ? 'checked' : ''} data-id="${walkin.id}" ${walkin.expired ? 'disabled' : ''}>
-                    <button data-id="${walkin.id}" class="cancel-btn" ${walkin.expired ? 'disabled' : ''}>Remove</button>
-                </div>
-            `;
-            
-            walkinsList.appendChild(walkinItem);
-            
-            // Notify checkbox
-            const checkbox = walkinItem.querySelector('.status-checkbox');
-            checkbox.addEventListener('change', function() {
-                const walkin = bookings.find(b => b.id === this.dataset.id);
-                if (walkin) {
-                    walkin.notified = this.checked;
-                    if (this.checked) {
-                        sendWhatsAppNotification(walkin);
-                        // Set expiry timer
-                        setTimeout(() => {
-                            expireWalkin(walkin.id);
-                        }, 15 * 60 * 1000); // 15 minutes
-                    }
-                    db.collection('bookings').doc(walkin.id).update({ 
-                        notified: this.checked,
-                        notifiedAt: this.checked ? new Date().toISOString() : null
-                    });
-                    renderWalkinsList();
-                }
-            });
-            
-            // Remove button
-            const removeBtn = walkinItem.querySelector('.cancel-btn');
-            removeBtn.addEventListener('click', function() {
-                if (!confirm('Remove this walk-in customer from queue?')) return;
-                const walkinId = this.dataset.id;
-                db.collection('bookings').doc(walkinId).delete().then(() => {
-                    showAlert('Walk-in customer removed from queue', 'success');
-                });
-            });
-        });
-    }
-    
-    function getWaitTime(createdAt) {
-        const now = new Date();
-        const created = new Date(createdAt);
-        const diffMs = now - created;
-        const diffMins = Math.floor(diffMs / 60000);
-        
-        if (diffMins < 60) {
-            return `${diffMins} min${diffMins !== 1 ? 's' : ''}`;
-        } else {
-            const hours = Math.floor(diffMins / 60);
-            const mins = diffMins % 60;
-            return `${hours}h ${mins}m`;
-        }
-    }
-    
-    function sendWhatsAppNotification(walkin) {
-        const message = `Hi ${walkin.name}! 🎉%0A%0AYour table is ready at Nikku Shabu Shabu!%0A%0A📍 Please arrive within 15 minutes%0A👥 Party of ${walkin.partySize}%0A⏰ Arrived at: ${new Date(walkin.createdAt).toLocaleTimeString()}%0A%0AWe can't wait to serve you! 🍲`;
-        
-        const whatsappUrl = `https://wa.me/${walkin.phone.replace(/\D/g, '')}?text=${message}`;
-        
-        // Open WhatsApp in new tab
-        window.open(whatsappUrl, '_blank');
-        
-        // Also send to Telegram for backup
-        const telegramMessage = `Walk-in Notification!%0AName: ${walkin.name}%0APhone: ${walkin.phone}%0AParty Size: ${walkin.partySize}%0AArrived: ${new Date(walkin.createdAt).toLocaleTimeString()}%0AStatus: Table Ready`;
-        
-        fetch(`https://api.telegram.org/bot7748486297:AAEvdBWnlnzNjrk_U0deQ-3y2trwYEu5a8M/sendMessage?chat_id=8172012387&text=${telegramMessage}`)
-          .then(response => response.json())
-          .then(data => {
-            console.log('Telegram notification sent:', data);
-          })
-          .catch(error => {
-            console.error('Error sending Telegram notification:', error);
-          });
-    }
-    
-    function expireWalkin(walkinId) {
-        db.collection('bookings').doc(walkinId).update({ 
-            expired: true,
-            expiredAt: new Date().toISOString()
-        });
-    }
 
     function renderUserBookingSummary() {
         const phone = phoneInput.value.trim();
@@ -788,24 +640,12 @@
             tablesRemainingEl.textContent = 'Tables Available: Please select a date';
             return;
         }
-        const bookingsForDate = bookings.filter(booking => 
-            booking.date === selectedDate && 
-            !booking.cancelled && 
-            (!booking.type || booking.type !== 'walkin')
-        );
-        const walkinsForDate = bookings.filter(booking => 
-            booking.date === selectedDate && 
-            !booking.cancelled && 
-            booking.type === 'walkin' &&
-            !booking.expired
-        );
-        
+        const bookingsForDate = bookings.filter(booking => booking.date === selectedDate && !booking.cancelled);
         const bookedSlots = {};
         bookingsForDate.forEach(booking => {
             if (!bookedSlots[booking.time]) bookedSlots[booking.time] = 0;
             bookedSlots[booking.time]++;
         });
-        
         let tableHtml = '<table class="tables-remaining-table">';
         tableHtml += '<tr><th>Time Slot</th><th>Tables Available</th></tr>';
         TIME_SLOTS.forEach(slot => {
@@ -819,14 +659,6 @@
             tableHtml += `<tr><td>${slot.label}</td><td>${remaining}</td></tr>`;
         });
         tableHtml += '</table>';
-        
-        // Add walk-in queue info
-        if (walkinsForDate.length > 0) {
-            tableHtml += `<div style="margin-top: 1rem; padding: 0.5rem; background: #fff3cd; border-radius: 4px; border: 1px solid #ffeaa7;">
-                <strong>Walk-In Queue:</strong> ${walkinsForDate.length} customer(s) waiting
-            </div>`;
-        }
-        
         tablesRemainingEl.innerHTML = 'Tables Available:' + tableHtml;
     }
 
@@ -851,21 +683,6 @@
             });
         }
     }
-    
-    // Auto-expire old walk-ins every minute
-    setInterval(() => {
-        const now = new Date();
-        const walkins = bookings.filter(b => b.type === 'walkin');
-        walkins.forEach(walkin => {
-            if (walkin.notified && !walkin.expired) {
-                const notifiedAt = new Date(walkin.notifiedAt);
-                const diffMs = now - notifiedAt;
-                if (diffMs > 15 * 60 * 1000) { // 15 minutes
-                    expireWalkin(walkin.id);
-                }
-            }
-        });
-    }, 60000);
     // --- End of script ---
     </script>
 </body>
